@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusStop Display</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-12">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <div class="flex justify-between items-center mb-8 border-b border-gray-200 pb-4">
+                <img src="http://static.photos/transportation/320x240/123" 
+                     alt="Bus Station Logo" 
+                     class="h-16 rounded-lg">
+<div class="text-right">
+                    <p class="text-gray-600 font-medium">Real-Time Departures</p>
+                    <p class="text-sm text-gray-500" id="current-time"></p>
+                </div>
+            </div>
+<h1 class="text-center mb-8" id="station-name">Downtown Transit Center</h1>
+<div class="grid grid-cols-1 gap-4" id="departures-container">
+                <!-- Departures will be inserted here by JavaScript -->
+                <div class="text-center py-8 text-gray-500" id="loading-message">
+                    Loading departure times...
+                </div>
+            </div>
+
+            <div class="mt-6 text-sm text-gray-500 text-center">
+                <p id="last-updated">Last updated: --:--</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
