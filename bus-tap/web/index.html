@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bus Departures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html,body { font-family: system-ui, Arial, sans-serif; margin:0; padding:0; }
+    header { background:#0f172a; color:#fff; padding:12px 16px; }
+    main { padding: 16px; max-width: 720px; margin: 0 auto; }
+    .card { border:1px solid #ddd; border-radius:12px; padding:16px; margin:12px 0; }
+    .time { opacity:.7; font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <header><h2>Next Bus Departing</h2></header>
+  <main>
+    <div id="status" class="card">Waiting for updates…</div>
+    <div class="card">
+      <div class="time">Recent events</div>
+      <ul id="events"></ul>
+    </div>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

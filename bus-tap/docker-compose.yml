@@ -1,0 +1,37 @@
+version: "3.9"
+services:
+  api:
+    build: ./api
+    container_name: tap-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=/data/events.db
+      - CORS_ORIGINS=*
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: tap-web
+    ports:
+      - "8080:80"
+    depends_on: [api]
+    restart: unless-stopped
+
+  rfid-reader:
+    build: ./rfid-reader
+    container_name: tap-reader
+    env_file: ./.env
+    depends_on: [api]
+    devices:
+      - "/dev/spidev0.0:/dev/spidev0.0"
+      - "/dev/gpiomem:/dev/gpiomem"
+      - "/dev/i2c-1:/dev/i2c-1"
+    privileged: true
+    group_add:
+      - "997"
+    volumes:
+      - ./rfid-reader/drivers.json:/app/drivers.json:ro
+    restart: unless-stopped
