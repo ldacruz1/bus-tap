@@ -4,7 +4,7 @@ services:
     build: ./api
     container_name: tap-api
     ports:
-      - "8000:8000"
+     - "8000:8000"
     environment:
       - DB_PATH=/data/events.db
       - CORS_ORIGINS=*
