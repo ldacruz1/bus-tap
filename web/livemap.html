@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusTap — San José live map (simulation)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --surface: #131920;
+      --border: #222d3a;
+      --accent: #00e5a0;
+      --accent2: #00b8d4;
+      --warn: #ffb830;
+      --text: #e8edf3;
+      --muted: #5a6a7a;
+      --mono: "Space Mono", monospace;
+      --sans: "DM Sans", sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .top-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .top-bar h1 {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .top-bar h1 span { color: var(--accent); }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .top-actions a {
+      font-size: 0.78rem;
+      color: var(--accent2);
+      text-decoration: none;
+    }
+    .top-actions a:hover { text-decoration: underline; }
+    button.primary {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: var(--bg);
+      cursor: pointer;
+    }
+    button.primary:hover { opacity: 0.92; }
+    #map {
+      flex: 1;
+      min-height: 320px;
+      width: 100%;
+    }
+    .legend {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px 20px;
+      padding: 10px 16px 14px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-swatch {
+      width: 28px;
+      height: 4px;
+      border-radius: 2px;
+    }
+    .attrib {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.4;
+      max-width: 900px;
+    }
+    .status {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--warn);
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+      font-family: var(--sans);
+    }
+    .leaflet-popup-content { margin: 10px 12px; font-size: 0.85rem; }
+    .leaflet-div-icon.bustap-stop-marker {
+      background: transparent !important;
+      border: none !important;
+    }
+    .popup-route {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div>
+      <h1><span>BusTap</span> · San José map</h1>
+      <p class="attrib" style="margin-top:4px;">
+        Base map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:var(--accent2)">OpenStreetMap</a>.
+        Road paths from <a href="http://project-osrm.org/" target="_blank" rel="noopener" style="color:var(--accent2)">OSRM</a> (OpenStreetMap road network). Bus stops from OSM or embedded samples. <strong>R1–R3</strong> match <strong>Simulation Mode</strong> (saved locally)—or Regenerate here.
+      </p>
+    </div>
+    <div class="top-actions">
+      <span class="status" id="load-status" aria-live="polite"></span>
+      <button type="button" class="primary" id="btn-regen">Regenerate routes</button>
+      <a href="index.html">Departures</a>
+      <a href="driver.html">Driver</a>
+    </div>
+  </div>
+  <div id="map" role="application" aria-label="Map of San Jose with simulated bus routes"></div>
+  <div class="legend" id="legend"></div>
+
+  <script src="route-simulation.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+(function () {
+  const SJ_CENTER = [37.3382, -121.8863];
+  const ZOOM = 13;
+  const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+  const ROUTE_META = window.BustapRouteSim ? window.BustapRouteSim.ROUTE_META : [
+    { id: "R1", name: "Route 1 (simulated)", color: "#00e5a0" },
+    { id: "R2", name: "Route 2 (simulated)", color: "#00b8d4" },
+    { id: "R3", name: "Route 3 (simulated)", color: "#ffb830" },
+  ];
+
+  const map = L.map("map", { scrollWheelZoom: true }).setView(SJ_CENTER, ZOOM);
+  const statusEl = document.getElementById("load-status");
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="http://project-osrm.org/">OSRM</a>',
+  }).addTo(map);
+
+  const layers = {
+    lines: L.layerGroup().addTo(map),
+    markers: L.layerGroup().addTo(map),
+  };
+
+  function clearLayers() {
+    layers.lines.clearLayers();
+    layers.markers.clearLayers();
+  }
+
+  /** OSRM returns [lon,lat]; Leaflet wants [lat,lng]. */
+  function osrmCoordsToLeaflet(coords) {
+    return coords.map((c) => [c[1], c[0]]);
+  }
+
+  async function osrmFetchJson(url) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 18000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      clearTimeout(t);
+      return null;
+    }
+  }
+
+  /** Single OSRM request: path follows driveable roads through all waypoints in order. */
+  async function drivingPolylineFull(stops) {
+    if (stops.length < 2) return null;
+    const pathPart = stops.map((s) => `${s.lon},${s.lat}`).join(";");
+    const url = `${OSRM_BASE}/${pathPart}?overview=full&geometries=geojson&generate_hints=false`;
+    const j = await osrmFetchJson(url);
+    if (!j || j.code !== "Ok" || !j.routes || !j.routes[0]) return null;
+    const g = j.routes[0].geometry;
+    if (!g) return null;
+    const coords = g.coordinates || (Array.isArray(g) ? g : null);
+    if (!coords || coords.length < 2) return null;
+    return osrmCoordsToLeaflet(coords);
+  }
+
+  /** Consecutive stop pairs (fewer failures than one giant multi-waypoint request). */
+  async function drivingPolylineSegmented(stops) {
+    if (stops.length < 2) return null;
+    const allLonLat = [];
+    for (let i = 0; i < stops.length - 1; i++) {
+      const a = stops[i];
+      const b = stops[i + 1];
+      const pathPart = `${a.lon},${a.lat};${b.lon},${b.lat}`;
+      const url = `${OSRM_BASE}/${pathPart}?overview=full&geometries=geojson&generate_hints=false`;
+      const j = await osrmFetchJson(url);
+      if (!j || j.code !== "Ok" || !j.routes || !j.routes[0] || !j.routes[0].geometry) return null;
+      const geo = j.routes[0].geometry;
+      const coords = geo.coordinates || geo;
+      if (!coords || coords.length < 2) return null;
+      if (allLonLat.length) {
+        for (let k = 1; k < coords.length; k++) allLonLat.push(coords[k]);
+      } else {
+        coords.forEach((pt) => allLonLat.push(pt));
+      }
+    }
+    return osrmCoordsToLeaflet(allLonLat);
+  }
+
+  async function roadPolylineForStops(stops) {
+    if (stops.length < 2) return null;
+    let latlngs = await drivingPolylineFull(stops);
+    if (!latlngs || latlngs.length < 2) latlngs = await drivingPolylineSegmented(stops);
+    return latlngs;
+  }
+
+  async function drawFromStored(stored) {
+    const stopsByRoute = window.BustapRouteSim.storedToStopsByRoute(stored);
+    await drawRoutes(stopsByRoute);
+  }
+
+  async function drawRoutes(stopsByRoute) {
+    clearLayers();
+    const legendEl = document.getElementById("legend");
+    legendEl.innerHTML = "";
+
+    for (const meta of ROUTE_META) {
+      const stops = stopsByRoute[meta.id] || [];
+      if (stops.length >= 2) {
+        statusEl.textContent = "Aligning " + meta.id + " to roads…";
+        const latlngs = await roadPolylineForStops(stops);
+        if (latlngs && latlngs.length >= 2) {
+          L.polyline(latlngs, { color: meta.color, weight: 5, opacity: 0.88, smoothFactor: 1 }).addTo(
+            layers.lines
+          );
+        }
+      }
+      stops.forEach((s, idx) => {
+        const icon = L.divIcon({
+          className: "bustap-stop-marker",
+          html: `<div style="
+            width:12px;height:12px;border-radius:50%;
+            background:${meta.color};border:2px solid #0b0f14;
+            box-shadow:0 0 0 1px ${meta.color};
+          "></div>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        });
+        const m = L.marker([s.lat, s.lon], { icon }).addTo(layers.markers);
+        const label = s.osmName || s.name || "Bus stop";
+        const sid = s.stop_id ? `<div style="color:#888;font-size:0.72rem">${s.stop_id}</div>` : "";
+        m.bindPopup(
+          `<div><span class="popup-route" style="background:rgba(0,0,0,.2);color:${meta.color}">${meta.id}</span><br><strong>${label}</strong>${sid}<span style="color:#888;font-size:0.75rem"><br>Stop ${idx + 1} on simulated path</span></div>`
+        );
+      });
+
+      const leg = document.createElement("div");
+      leg.className = "legend-item";
+      leg.innerHTML = `<span class="legend-swatch" style="background:${meta.color}"></span><span><strong>${meta.id}</strong> — ${meta.name} · ${stops.length} stops</span>`;
+      legendEl.appendChild(leg);
+    }
+
+    const bounds = [];
+    ROUTE_META.forEach((m) => (stopsByRoute[m.id] || []).forEach((s) => bounds.push([s.lat, s.lon])));
+    if (bounds.length) map.fitBounds(bounds, { padding: [36, 36], maxZoom: 14 });
+  }
+
+  async function refreshMap() {
+    const stored = window.BustapRouteSim && window.BustapRouteSim.loadStoredRoutes();
+    if (stored && stored.routes) {
+      statusEl.textContent = "Loading road network paths…";
+      try {
+        await drawFromStored(stored);
+        const stopsByRoute = window.BustapRouteSim.storedToStopsByRoute(stored);
+        const needsRoads = ROUTE_META.some((m) => (stopsByRoute[m.id] || []).length >= 2);
+        const hasLines = layers.lines.getLayers().length > 0;
+        const max = window.BustapRouteSim.MAX_STOPS_PER_ROUTE || 10;
+        if (needsRoads && !hasLines) {
+          statusEl.textContent =
+            "Stops shown, but road paths could not be loaded (OSRM unavailable or blocked). Check network or try again.";
+        } else {
+          statusEl.textContent =
+            "Road-aligned routes (max " +
+            max +
+            " stops each). Updated " +
+            (stored.updatedAt ? new Date(stored.updatedAt).toLocaleString() : "");
+        }
+      } catch (e) {
+        console.warn(e);
+        statusEl.textContent = "Could not load road paths.";
+      }
+    } else {
+      statusEl.textContent = "No routes yet — run Simulation Mode on Departures, or Regenerate here.";
+      clearLayers();
+      document.getElementById("legend").innerHTML = "";
+      map.setView(SJ_CENTER, ZOOM);
+    }
+  }
+
+  async function regenerate() {
+    const btn = document.getElementById("btn-regen");
+    if (!window.BustapRouteSim) return;
+    btn.disabled = true;
+    statusEl.textContent = "Building routes…";
+    try {
+      await window.BustapRouteSim.buildSimulationRoutes();
+      await refreshMap();
+      const cur = statusEl.textContent;
+      if (cur && !cur.startsWith("No routes")) {
+        statusEl.textContent = cur + " · Same paths as the Departures page.";
+      }
+    } catch (e) {
+      console.warn(e);
+      statusEl.textContent = "Could not build routes.";
+    }
+    btn.disabled = false;
+  }
+
+  document.getElementById("btn-regen").addEventListener("click", () => regenerate());
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === (window.BustapRouteSim && window.BustapRouteSim.STORAGE_KEY)) void refreshMap();
+  });
+  window.addEventListener("bustap-sim-routes-updated", () => void refreshMap());
+
+  void refreshMap();
+})();
+  </script>
+</body>
+</html>
