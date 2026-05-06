@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusTap — Driver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #0b0f14;
+      --surface:     #131920;
+      --surface2:    #1a2230;
+      --border:      #222d3a;
+      --accent:      #00e5a0;
+      --accent2:     #00b8d4;
+      --warn:        #ffb830;
+      --text:        #e8edf3;
+      --muted:       #5a6a7a;
+      --card-radius: 14px;
+      --mono:        'Space Mono', monospace;
+      --sans:        'DM Sans', sans-serif;
+    }
+    :root.light {
+      --bg:      #f0f4f8;
+      --surface:  #ffffff;
+      --surface2: #e4ecf4;
+      --border:   #c8d8e8;
+      --text:     #1a2535;
+      --muted:    #7a8fa6;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { transition: background .25s, color .25s; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.35;
+      pointer-events: none; z-index: 0;
+    }
+    .page {
+      position: relative; z-index: 1;
+      max-width: 900px; margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 40px; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-icon {
+      width: 48px; height: 48px; background: var(--accent);
+      border-radius: 12px; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0;
+    }
+    .brand-icon svg { width: 26px; height: 26px; }
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-name {
+      font-family: var(--mono); font-size: 1.25rem; font-weight: 700;
+      letter-spacing: -0.5px; color: var(--text); line-height: 1;
+    }
+    .brand-sub {
+      font-size: 0.72rem; font-weight: 500; color: var(--accent);
+      letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;
+    }
+    #clock {
+      font-family: var(--mono); font-size: 1.6rem; font-weight: 700;
+      color: var(--text); letter-spacing: 1px; line-height: 1; text-align: right;
+    }
+    #clock-date { font-size: 0.75rem; color: var(--muted); margin-top: 4px; text-align: right; }
+
+    .icon-btns { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      width: 38px; height: 38px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s, color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover  { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,.08); }
+    .icon-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,.12); }
+    .icon-btn svg { width: 17px; height: 17px; pointer-events: none; }
+
+    .health-row { display: flex; align-items: center; gap: 8px; }
+    .health-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+      background: var(--muted); transition: background .4s;
+    }
+    .health-dot.ok  { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+    .health-dot.err { background: #f87171; box-shadow: 0 0 5px #f87171; animation: pulse 1.2s infinite; }
+    .health-label { font-size: 0.74rem; color: var(--muted); font-family: var(--mono); }
+
+    .lang-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .lang-bar-text { display: flex; flex-direction: column; gap: 2px; min-width: 100px; flex: 1; }
+    .lang-bar-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .lang-bar-sub   { font-size: 0.7rem; color: var(--muted); }
+    .lang-pills { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .lang-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 12px;
+      font-family: var(--sans); font-size: 0.78rem; font-weight: 500; color: var(--text);
+      transition: border-color .15s, background .15s, color .15s;
+      white-space: nowrap; user-select: none;
+    }
+    .lang-pill:hover  { border-color: var(--accent); background: rgba(0,229,160,.08); }
+
+    .driver-avatar-wrap {
+      width: 56px; height: 56px; flex-shrink: 0;
+      border-radius: 50%; overflow: hidden;
+      border: 2px solid var(--accent);
+      background: var(--surface2);
+    }
+    .driver-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .stats {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--card-radius); padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 4px; transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-label { font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+    .stat-value { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-sub   { font-size: 0.72rem; color: var(--muted); }
+
+    .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .section-title {
+      font-family: var(--mono); font-size: 0.8rem; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--muted); flex: 1;
+    }
+    .ws-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted); transition: background .3s; flex-shrink: 0;
+    }
+    .ws-dot.live { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .ws-label { font-size: 0.72rem; color: var(--muted); }
+    .route-wrap { position: relative; }
+    select {
+      appearance: none; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--sans); font-size: 0.82rem; font-weight: 500;
+      padding: 8px 32px 8px 12px; border-radius: 8px; cursor: pointer; outline: none;
+      transition: border-color .2s;
+    }
+    select:focus, select:hover { border-color: var(--accent); }
+    select:disabled { opacity: 0.55; cursor: not-allowed; }
+    .route-wrap::after {
+      content: '▾'; position: absolute; right: 10px; top: 50%;
+      transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 0.75rem;
+    }
+
+    #departures { display: flex; flex-direction: column; gap: 10px; }
+    .empty-state {
+      background: var(--surface); border: 1px dashed var(--border);
+      border-radius: var(--card-radius); padding: 56px 24px; text-align: center; color: var(--muted);
+    }
+    .empty-state svg { margin-bottom: 16px; opacity: .4; }
+    .empty-state p   { font-size: 0.85rem; }
+    .dep-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--card-radius); padding: 18px 22px;
+      display: flex; align-items: center; gap: 16px;
+      animation: slideIn .35s ease both; transition: border-color .2s, background .2s;
+    }
+    @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+    .dep-card:hover { border-color: var(--accent2); background: var(--surface2); }
+    .dep-card.new-flash { animation: slideIn .35s ease both, flashBorder .8s ease forwards; }
+    @keyframes flashBorder {
+      0%  { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,229,160,.2); }
+      100%{ border-color:var(--border); box-shadow:none; }
+    }
+    .dep-icon {
+      width:44px; height:44px; border-radius:10px;
+      background:var(--surface2); border:1px solid var(--border);
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .dep-icon svg { width:22px; height:22px; }
+    .dep-info { flex:1; min-width:0; }
+    .dep-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+    .dep-busid { font-family:var(--mono); font-size:0.95rem; font-weight:700; color:var(--text); }
+    .dep-route {
+      font-size:0.72rem; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+      color:var(--accent2); background:rgba(0,184,212,.12); border:1px solid rgba(0,184,212,.25);
+      padding:2px 8px; border-radius:4px;
+    }
+    .dep-bottom { display:flex; align-items:center; gap:14px; font-size:0.78rem; color:var(--muted); flex-wrap:wrap; }
+    .dep-bottom span { display:flex; align-items:center; gap:5px; }
+    .dep-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+    .dep-time  { font-family:var(--mono); font-size:0.78rem; color:var(--muted); white-space:nowrap; }
+    .dep-badge { font-size:0.7rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:3px 10px; border-radius:6px; }
+    .dep-badge.leaving  { background:rgba(0,229,160,.15); color:var(--accent); border:1px solid rgba(0,229,160,.3); }
+    .dep-badge.arriving { background:rgba(255,184,48,.12); color:var(--warn);  border:1px solid rgba(255,184,48,.25); }
+    .dep-badge.default  { background:var(--surface2);     color:var(--muted); border:1px solid var(--border); }
+
+    footer { margin-top:40px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+    #last-updated { font-size:0.74rem; color:var(--muted); font-family:var(--mono); }
+    .footer-brand { font-size:0.74rem; color:var(--muted); }
+    .footer-brand span { color:var(--accent); }
+
+    @media(max-width:580px){
+      .stats { grid-template-columns:repeat(2,1fr); }
+      #clock { font-size:1.2rem; }
+      .lang-pills { gap:5px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0b0f14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="6" width="20" height="12" rx="3"/>
+          <path d="M2 10h20M7 18v2M17 18v2"/>
+          <circle cx="7" cy="14" r="1" fill="#0b0f14" stroke="none"/>
+          <circle cx="17" cy="14" r="1" fill="#0b0f14" stroke="none"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">BusTap</span>
+        <span class="brand-sub">Driver dashboard</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:flex-end;">
+      <div class="icon-btns">
+        <button class="icon-btn" id="theme-btn" aria-label="Switch to light mode" title="Toggle light/dark mode">
+          <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1"  x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22"  x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1"  y1="12" x2="3"  y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+      </div>
+      <div>
+        <div id="clock">--:--:--</div>
+        <div id="clock-date">--</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="lang-bar" id="sim-tour-d-profile" role="region" aria-label="Driver profile">
+    <div class="driver-avatar-wrap">
+      <img id="driver-photo" src="" alt="" width="56" height="56" />
+    </div>
+    <div class="lang-bar-text">
+      <div class="lang-bar-title" id="driver-name">—</div>
+      <div class="lang-bar-sub">Simulated driver · routes are drawn from the same list as badge-scan events (<code style="font-size:0.68rem;">GET /routes</code>)</div>
+    </div>
+    <div class="lang-pills" id="route-pills" aria-label="Assigned routes"></div>
+  </div>
+
+  <div class="stats" id="sim-tour-d-stats">
+    <div class="stat-card">
+      <span class="stat-label">Assigned routes</span>
+      <span class="stat-value" id="stat-routes">—</span>
+      <span class="stat-sub">1–2 routes · API catalog</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Your route events</span>
+      <span class="stat-value" id="stat-events">—</span>
+      <span class="stat-sub">taps on your route(s)</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Last tap</span>
+      <span class="stat-value" id="stat-last" style="font-size:1rem;margin-top:4px;">—</span>
+      <span class="stat-sub" id="stat-last-sub">No taps yet on your routes</span>
+    </div>
+  </div>
+
+  <div class="controls" id="sim-tour-d-controls">
+    <span class="section-title">Route activity</span>
+    <span class="ws-dot" id="ws-dot"></span>
+    <span class="ws-label" id="ws-label">Connecting…</span>
+    <div class="route-wrap">
+      <select id="routeFilter" aria-label="Filter by assigned route"></select>
+    </div>
+  </div>
+
+  <div id="departures" role="list" aria-live="polite" aria-label="Events on your routes">
+    <div class="empty-state" id="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2" y="6" width="20" height="12" rx="3"/>
+        <path d="M2 10h20M7 18v2M17 18v2"/>
+      </svg>
+      <p>Loading route activity…</p>
+    </div>
+  </div>
+
+  <footer id="sim-tour-d-footer">
+    <span id="last-updated">Last updated: —</span>
+    <div class="health-row">
+      <div class="health-dot" id="health-dot"></div>
+      <span class="health-label" id="health-label">API —</span>
+    </div>
+    <span class="footer-brand">Powered by <span>BusTap RFID</span></span>
+  </footer>
+
+</div>
+<script src="driver.js"></script>
+<script src="simulation.js"></script>
+</body>
+</html>
